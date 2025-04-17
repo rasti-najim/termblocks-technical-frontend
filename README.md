@@ -1,36 +1,28 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+✅ Overview
+Goal: Build a Custom Checklist Builder web application with a React + TypeScript frontend and a Python-based backend (FastAPI/Django/etc.), using a relational database (PostgreSQL suggested), and Docker for containerization.
 
-## Getting Started
+📦 Core Functional Requirements
+You need to support:
 
-First, run the development server:
+1. Checklist Creation
+   Checklists are made of categories.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Each category has items.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Each item can optionally be a file upload field.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Items may accept single or multiple files.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+2. Checklist Persistence
+   Store created checklists in a database.
 
-## Learn More
+3. Cloning
+   Ability to duplicate an existing checklist to start a new one.
 
-To learn more about Next.js, take a look at the following resources:
+4. Editing
+   Edit existing checklists: Add, remove, rename categories and items.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+5. Sharing
+   Share checklists via a public link.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Third parties can upload files but cannot change the structure.
