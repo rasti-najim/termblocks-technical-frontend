@@ -22,36 +22,55 @@ export default function ChecklistCard({
   onShare,
 }: ChecklistCardProps) {
   return (
-    <div className="bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-all duration-200 hover:shadow-md">
-      <div className="p-6">
-        <div className="flex items-start justify-between">
-          <h3 className="text-lg font-medium text-gray-900 mb-1">
-            {name || "Untitled Checklist"}
-          </h3>
-          <div className="flex space-x-2">
-            <button
-              onClick={() => onShare(id)}
-              className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
-            >
-              <ShareIcon className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => onEdit(id)}
-              className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
-            >
-              <PencilIcon className="w-5 h-5" />
-            </button>
+    <div className="relative transform-gpu">
+      {/* Card container with hover effects */}
+      <div
+        className="group/card bg-white rounded-lg border border-gray-200 transition-all duration-200 cursor-pointer 
+                   hover:border-gray-300 hover:shadow-md hover:translate-y-[-2px]
+                   active:translate-y-0 active:shadow-sm active:bg-gray-50"
+        onClick={(e) => {
+          // Only trigger edit if not clicking on the action buttons
+          if (!(e.target as HTMLElement).closest(".action-button")) {
+            onEdit(id);
+          }
+        }}
+      >
+        <div className="p-6">
+          <div className="flex items-start justify-between">
+            <h3 className="text-lg font-medium text-gray-900 mb-1 group-hover/card:text-blue-600 transition-colors duration-200">
+              {name || "Untitled Checklist"}
+            </h3>
+            <div className="flex space-x-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onShare(id);
+                }}
+                className="action-button text-gray-400 hover:text-gray-600 active:text-gray-800 transition-colors duration-200 p-1 rounded-full hover:bg-gray-100"
+              >
+                <ShareIcon className="w-5 h-5" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(id);
+                }}
+                className="action-button text-gray-400 hover:text-gray-600 active:text-gray-800 transition-colors duration-200 p-1 rounded-full hover:bg-gray-100"
+              >
+                <PencilIcon className="w-5 h-5" />
+              </button>
+            </div>
           </div>
-        </div>
 
-        <div className="mt-4 flex items-center space-x-4 text-sm text-gray-500">
-          <span>{categoryCount} categories</span>
-          <span>•</span>
-          <span>{itemCount} items</span>
-        </div>
+          <div className="mt-4 flex items-center space-x-4 text-sm text-gray-500">
+            <span>{categoryCount} categories</span>
+            <span>•</span>
+            <span>{itemCount} items</span>
+          </div>
 
-        <div className="mt-4 text-xs text-gray-400">
-          Last modified {lastModified}
+          <div className="mt-4 text-xs text-gray-400">
+            Last modified {lastModified}
+          </div>
         </div>
       </div>
     </div>

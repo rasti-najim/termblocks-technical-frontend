@@ -1,12 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import {
-  PlusIcon,
-  TrashIcon,
-  DocumentIcon,
-  DocumentDuplicateIcon,
-} from "@heroicons/react/24/outline";
+import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
+import FileUploadField from "./FileUploadField";
 
 interface Category {
   id: string;
@@ -17,8 +13,8 @@ interface Category {
 interface ChecklistItem {
   id: string;
   name: string;
-  isFileUpload: boolean;
-  allowMultipleFiles: boolean;
+  files?: File[];
+  uploadedFiles?: string[];
 }
 
 export default function ChecklistCreator() {
@@ -47,8 +43,6 @@ export default function ChecklistCreator() {
               {
                 id: Math.random().toString(36).substr(2, 9),
                 name: "New Item",
-                isFileUpload: false,
-                allowMultipleFiles: false,
               },
             ],
           };
@@ -92,7 +86,7 @@ export default function ChecklistCreator() {
         {categories.map((category) => (
           <div
             key={category.id}
-            className="group bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors duration-200"
+            className="bg-white rounded-lg border border-gray-200 overflow-hidden"
           >
             <div className="flex items-center justify-between p-4 border-b border-gray-100">
               <input
@@ -110,31 +104,56 @@ export default function ChecklistCreator() {
               />
               <button
                 onClick={() => deleteCategory(category.id)}
-                className="text-gray-400 hover:text-red-500 transition-colors duration-200 opacity-0 group-hover:opacity-100"
+                className="text-gray-400 hover:text-red-500 transition-colors duration-200"
               >
                 <TrashIcon className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-4 space-y-3">
+            <div className="divide-y divide-gray-100">
               {category.items.map((item) => (
-                <div
-                  key={item.id}
-                  className="group/item flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-md transition-colors duration-200"
-                >
-                  <input
-                    type="text"
-                    value={item.name}
-                    onChange={(e) => {
+                <div key={item.id} className="p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <input
+                      type="text"
+                      value={item.name}
+                      onChange={(e) => {
+                        setCategories(
+                          categories.map((c) => {
+                            if (c.id === category.id) {
+                              return {
+                                ...c,
+                                items: c.items.map((i) =>
+                                  i.id === item.id
+                                    ? { ...i, name: e.target.value }
+                                    : i
+                                ),
+                              };
+                            }
+                            return c;
+                          })
+                        );
+                      }}
+                      className="text-gray-600 focus:outline-none focus:ring-0 bg-transparent w-full"
+                      placeholder="Item name"
+                    />
+                    <button
+                      onClick={() => deleteItem(category.id, item.id)}
+                      className="text-gray-400 hover:text-red-500 transition-colors duration-200 ml-2"
+                    >
+                      <TrashIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <FileUploadField
+                    onFilesSelected={(files) => {
                       setCategories(
                         categories.map((c) => {
                           if (c.id === category.id) {
                             return {
                               ...c,
                               items: c.items.map((i) =>
-                                i.id === item.id
-                                  ? { ...i, name: e.target.value }
-                                  : i
+                                i.id === item.id ? { ...i, files } : i
                               ),
                             };
                           }
@@ -142,86 +161,20 @@ export default function ChecklistCreator() {
                         })
                       );
                     }}
-                    className="flex-1 text-gray-600 focus:outline-none focus:ring-0 bg-transparent"
-                    placeholder="Item name"
+                    existingFiles={item.uploadedFiles}
                   />
-
-                  <div className="flex items-center space-x-2 opacity-0 group-hover/item:opacity-100 transition-opacity duration-200">
-                    <label className="flex items-center space-x-2 text-sm text-gray-500 hover:text-gray-700">
-                      <input
-                        type="checkbox"
-                        checked={item.isFileUpload}
-                        onChange={(e) => {
-                          setCategories(
-                            categories.map((c) => {
-                              if (c.id === category.id) {
-                                return {
-                                  ...c,
-                                  items: c.items.map((i) =>
-                                    i.id === item.id
-                                      ? { ...i, isFileUpload: e.target.checked }
-                                      : i
-                                  ),
-                                };
-                              }
-                              return c;
-                            })
-                          );
-                        }}
-                        className="rounded border-gray-300 text-blue-500 focus:ring-blue-500"
-                      />
-                      <DocumentIcon className="w-4 h-4" />
-                    </label>
-
-                    {item.isFileUpload && (
-                      <label className="flex items-center space-x-2 text-sm text-gray-500 hover:text-gray-700">
-                        <input
-                          type="checkbox"
-                          checked={item.allowMultipleFiles}
-                          onChange={(e) => {
-                            setCategories(
-                              categories.map((c) => {
-                                if (c.id === category.id) {
-                                  return {
-                                    ...c,
-                                    items: c.items.map((i) =>
-                                      i.id === item.id
-                                        ? {
-                                            ...i,
-                                            allowMultipleFiles:
-                                              e.target.checked,
-                                          }
-                                        : i
-                                    ),
-                                  };
-                                }
-                                return c;
-                              })
-                            );
-                          }}
-                          className="rounded border-gray-300 text-blue-500 focus:ring-blue-500"
-                        />
-                        <DocumentDuplicateIcon className="w-4 h-4" />
-                      </label>
-                    )}
-
-                    <button
-                      onClick={() => deleteItem(category.id, item.id)}
-                      className="text-gray-400 hover:text-red-500 transition-colors duration-200"
-                    >
-                      <TrashIcon className="w-4 h-4" />
-                    </button>
-                  </div>
                 </div>
               ))}
 
-              <button
-                onClick={() => addItem(category.id)}
-                className="flex items-center space-x-2 text-sm text-gray-500 hover:text-blue-500 transition-colors duration-200 mt-2 px-2"
-              >
-                <PlusIcon className="w-4 h-4" />
-                <span>Add item</span>
-              </button>
+              <div className="p-4">
+                <button
+                  onClick={() => addItem(category.id)}
+                  className="flex items-center space-x-2 text-sm text-gray-500 hover:text-blue-500 transition-colors duration-200"
+                >
+                  <PlusIcon className="w-4 h-4" />
+                  <span>Add item</span>
+                </button>
+              </div>
             </div>
           </div>
         ))}
