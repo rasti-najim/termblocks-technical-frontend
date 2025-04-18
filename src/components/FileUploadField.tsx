@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import {
   PaperClipIcon,
   XMarkIcon,
@@ -23,11 +23,6 @@ export default function FileUploadField({
   const [files, setFiles] = useState<File[]>([]);
   const [allowMultiple, setAllowMultiple] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Use useEffect to handle file changes
-  useEffect(() => {
-    onFilesSelected(files);
-  }, [files, onFilesSelected]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -52,16 +47,29 @@ export default function FileUploadField({
   };
 
   const handleFiles = (newFiles: File[]) => {
+    let updatedFiles;
     if (!allowMultiple) {
       // If single file mode, only take the last file
-      setFiles(newFiles.slice(-1));
+      updatedFiles = newFiles.slice(-1);
     } else {
-      setFiles((prev) => [...prev, ...newFiles]);
+      updatedFiles = [...files, ...newFiles];
     }
+    setFiles(updatedFiles);
+    onFilesSelected(updatedFiles);
   };
 
   const removeFile = (fileToRemove: File) => {
-    setFiles((prev) => prev.filter((f) => f !== fileToRemove));
+    const updatedFiles = files.filter((f) => f !== fileToRemove);
+    setFiles(updatedFiles);
+    onFilesSelected(updatedFiles);
+  };
+
+  const handleToggleMultiple = () => {
+    const newValue = !allowMultiple;
+    setAllowMultiple(newValue);
+    // Clear files when switching modes
+    setFiles([]);
+    onFilesSelected([]);
   };
 
   return (
@@ -89,10 +97,7 @@ export default function FileUploadField({
 
           <button
             type="button"
-            onClick={() => {
-              setAllowMultiple(!allowMultiple);
-              setFiles([]); // Clear files when switching modes
-            }}
+            onClick={handleToggleMultiple}
             className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors duration-200
               ${
                 allowMultiple

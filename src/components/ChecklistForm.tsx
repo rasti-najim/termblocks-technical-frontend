@@ -148,22 +148,17 @@ export default function ChecklistForm({ initialData }: ChecklistFormProps) {
   // Helper for updating an item's files
   const updateItemFiles = (
     categoryIndex: number,
-    category: Category,
     itemIndex: number,
     files: File[]
   ) => {
-    const updatedItems = [...category.items];
-    updatedItems[itemIndex] = {
-      ...updatedItems[itemIndex],
-      files,
-    };
-
-    const updatedCategory = {
-      ...category,
-      items: updatedItems,
-    };
-
-    updateCategory(categoryIndex, updatedCategory);
+    const newCategories = [...formValues.categories];
+    if (newCategories[categoryIndex]?.items?.[itemIndex]) {
+      newCategories[categoryIndex].items[itemIndex].files = files;
+      setValue(`categories.${categoryIndex}.items.${itemIndex}.files`, files, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+    }
   };
 
   // Mock share functionality
@@ -297,12 +292,7 @@ export default function ChecklistForm({ initialData }: ChecklistFormProps) {
 
                       <FileUploadField
                         onFilesSelected={(files) =>
-                          updateItemFiles(
-                            categoryIndex,
-                            category,
-                            itemIndex,
-                            files
-                          )
+                          updateItemFiles(categoryIndex, itemIndex, files)
                         }
                         existingFiles={item.uploadedFiles}
                         error={
