@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { useRouter } from "next/navigation";
 import FileUploadField from "./FileUploadField";
 
 export interface Category {
@@ -27,20 +28,58 @@ interface ChecklistCreatorProps {
 export default function ChecklistCreator({
   initialData,
 }: ChecklistCreatorProps) {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [checklistName, setChecklistName] = useState("");
+  const router = useRouter();
+  const [categories, setCategories] = useState<Category[]>(
+    initialData?.categories || []
+  );
+  const [checklistName, setChecklistName] = useState(initialData?.name || "");
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Load initial data if provided
+  // Only update state if initialData changes from undefined to defined or vice versa
   useEffect(() => {
     if (initialData) {
       setChecklistName(initialData.name);
       setCategories(initialData.categories);
+    } else {
+      setChecklistName("");
+      setCategories([]);
     }
-  }, [initialData]);
+  }, [initialData?.name, JSON.stringify(initialData?.categories)]);
+
+  const handleSave = async () => {
+    if (!checklistName.trim()) {
+      alert("Please enter a checklist name");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // TODO: Replace with actual API call
+      // Mock API call
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // For now, just mock the save by adding to mockChecklistData
+      const newChecklist = {
+        name: checklistName,
+        categories: categories,
+      };
+
+      console.log("Saving checklist:", newChecklist);
+
+      // Navigate back to the home page after saving
+      router.push("/");
+      router.refresh(); // Refresh the page to show the new checklist
+    } catch (error) {
+      console.error("Error saving checklist:", error);
+      alert("Failed to save checklist. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const addCategory = () => {
-    setCategories([
-      ...categories,
+    setCategories((prevCategories) => [
+      ...prevCategories,
       {
         id: Math.random().toString(36).substr(2, 9),
         name: "New Category",
@@ -50,8 +89,8 @@ export default function ChecklistCreator({
   };
 
   const addItem = (categoryId: string) => {
-    setCategories(
-      categories.map((category) => {
+    setCategories((prevCategories) =>
+      prevCategories.map((category) => {
         if (category.id === categoryId) {
           return {
             ...category,
@@ -70,12 +109,14 @@ export default function ChecklistCreator({
   };
 
   const deleteCategory = (categoryId: string) => {
-    setCategories(categories.filter((c) => c.id !== categoryId));
+    setCategories((prevCategories) =>
+      prevCategories.filter((c) => c.id !== categoryId)
+    );
   };
 
   const deleteItem = (categoryId: string, itemId: string) => {
-    setCategories(
-      categories.map((category) => {
+    setCategories((prevCategories) =>
+      prevCategories.map((category) => {
         if (category.id === categoryId) {
           return {
             ...category,
@@ -83,6 +124,52 @@ export default function ChecklistCreator({
           };
         }
         return category;
+      })
+    );
+  };
+
+  const updateCategoryName = (categoryId: string, newName: string) => {
+    setCategories((prevCategories) =>
+      prevCategories.map((c) =>
+        c.id === categoryId ? { ...c, name: newName } : c
+      )
+    );
+  };
+
+  const updateItemName = (
+    categoryId: string,
+    itemId: string,
+    newName: string
+  ) => {
+    setCategories((prevCategories) =>
+      prevCategories.map((c) => {
+        if (c.id === categoryId) {
+          return {
+            ...c,
+            items: c.items.map((i) =>
+              i.id === itemId ? { ...i, name: newName } : i
+            ),
+          };
+        }
+        return c;
+      })
+    );
+  };
+
+  const updateItemFiles = (
+    categoryId: string,
+    itemId: string,
+    files: File[]
+  ) => {
+    setCategories((prevCategories) =>
+      prevCategories.map((c) => {
+        if (c.id === categoryId) {
+          return {
+            ...c,
+            items: c.items.map((i) => (i.id === itemId ? { ...i, files } : i)),
+          };
+        }
+        return c;
       })
     );
   };
@@ -109,13 +196,9 @@ export default function ChecklistCreator({
               <input
                 type="text"
                 value={category.name}
-                onChange={(e) => {
-                  setCategories(
-                    categories.map((c) =>
-                      c.id === category.id ? { ...c, name: e.target.value } : c
-                    )
-                  );
-                }}
+                onChange={(e) =>
+                  updateCategoryName(category.id, e.target.value)
+                }
                 className="text-lg font-medium focus:outline-none focus:ring-0 text-gray-700 w-full"
                 placeholder="Category name"
               />
@@ -134,23 +217,9 @@ export default function ChecklistCreator({
                     <input
                       type="text"
                       value={item.name}
-                      onChange={(e) => {
-                        setCategories(
-                          categories.map((c) => {
-                            if (c.id === category.id) {
-                              return {
-                                ...c,
-                                items: c.items.map((i) =>
-                                  i.id === item.id
-                                    ? { ...i, name: e.target.value }
-                                    : i
-                                ),
-                              };
-                            }
-                            return c;
-                          })
-                        );
-                      }}
+                      onChange={(e) =>
+                        updateItemName(category.id, item.id, e.target.value)
+                      }
                       className="text-gray-600 focus:outline-none focus:ring-0 bg-transparent w-full"
                       placeholder="Item name"
                     />
@@ -163,21 +232,9 @@ export default function ChecklistCreator({
                   </div>
 
                   <FileUploadField
-                    onFilesSelected={(files) => {
-                      setCategories(
-                        categories.map((c) => {
-                          if (c.id === category.id) {
-                            return {
-                              ...c,
-                              items: c.items.map((i) =>
-                                i.id === item.id ? { ...i, files } : i
-                              ),
-                            };
-                          }
-                          return c;
-                        })
-                      );
-                    }}
+                    onFilesSelected={(files) =>
+                      updateItemFiles(category.id, item.id, files)
+                    }
                     existingFiles={item.uploadedFiles}
                   />
                 </div>
@@ -208,8 +265,15 @@ export default function ChecklistCreator({
       </div>
 
       <div className="fixed bottom-6 right-6 flex space-x-3">
-        <button className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors duration-200 shadow-lg">
-          Save
+        <button
+          onClick={handleSave}
+          disabled={isSaving}
+          className={`bg-blue-500 text-white px-4 py-2 rounded-lg transition-colors duration-200 shadow-lg flex items-center
+            ${
+              isSaving ? "opacity-75 cursor-not-allowed" : "hover:bg-blue-600"
+            }`}
+        >
+          {isSaving ? "Saving..." : "Save"}
         </button>
         <button className="bg-white text-gray-600 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-200 shadow-lg border border-gray-200">
           Share

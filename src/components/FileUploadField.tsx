@@ -11,11 +11,13 @@ import {
 interface FileUploadFieldProps {
   onFilesSelected: (files: File[]) => void;
   existingFiles?: string[];
+  error?: string;
 }
 
 export default function FileUploadField({
   onFilesSelected,
   existingFiles = [],
+  error,
 }: FileUploadFieldProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
@@ -63,52 +65,58 @@ export default function FileUploadField({
   };
 
   return (
-    <div
-      className={`relative rounded-lg transition-colors duration-200 ${
-        isDragging ? "bg-blue-50" : "hover:bg-gray-50"
-      }`}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm text-gray-500">
+    <div className="space-y-2">
+      <div
+        className={`relative rounded-lg transition-colors duration-200 ${
+          isDragging ? "bg-blue-50" : "hover:bg-gray-50"
+        } ${error ? "border border-red-300" : ""}`}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:text-blue-600 transition-colors duration-200 rounded-md hover:bg-blue-50"
+            >
+              <PaperClipIcon className="w-5 h-5" />
+              <span>Attach {allowMultiple ? "files" : "a file"}</span>
+            </button>
+            <span className="text-gray-400">or drag and drop</span>
+          </div>
+
           <button
-            onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:text-blue-600 transition-colors duration-200 rounded-md hover:bg-blue-50"
+            type="button"
+            onClick={() => {
+              setAllowMultiple(!allowMultiple);
+              setFiles([]); // Clear files when switching modes
+            }}
+            className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors duration-200
+              ${
+                allowMultiple
+                  ? "text-blue-600 bg-blue-50 hover:bg-blue-100"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+              }`}
           >
-            <PaperClipIcon className="w-5 h-5" />
-            <span>Attach {allowMultiple ? "files" : "a file"}</span>
+            <Square2StackIcon className="w-5 h-5" />
+            <span className="text-sm">
+              {allowMultiple ? "Multiple files" : "Single file"}
+            </span>
           </button>
-          <span className="text-gray-400">or drag and drop</span>
         </div>
 
-        <button
-          onClick={() => {
-            setAllowMultiple(!allowMultiple);
-            setFiles([]); // Clear files when switching modes
-          }}
-          className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors duration-200
-            ${
-              allowMultiple
-                ? "text-blue-600 bg-blue-50 hover:bg-blue-100"
-                : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-            }`}
-        >
-          <Square2StackIcon className="w-5 h-5" />
-          <span className="text-sm">
-            {allowMultiple ? "Multiple files" : "Single file"}
-          </span>
-        </button>
+        <input
+          type="file"
+          ref={fileInputRef}
+          className="hidden"
+          multiple={allowMultiple}
+          onChange={handleFileInput}
+        />
       </div>
 
-      <input
-        type="file"
-        ref={fileInputRef}
-        className="hidden"
-        multiple={allowMultiple}
-        onChange={handleFileInput}
-      />
+      {error && <div className="text-red-500 text-xs mt-1">{error}</div>}
 
       {/* File list */}
       {(files.length > 0 || existingFiles.length > 0) && (
@@ -136,6 +144,7 @@ export default function FileUploadField({
                 <span className="text-sm text-gray-600">{file.name}</span>
               </div>
               <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   removeFile(file);

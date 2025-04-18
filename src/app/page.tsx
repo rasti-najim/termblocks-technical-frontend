@@ -1,35 +1,23 @@
 import Link from "next/link";
 import { PlusIcon } from "@heroicons/react/24/outline";
-import ChecklistGrid from "@/components/ChecklistGrid";
-
-// This would come from your database
-const mockChecklists = [
-  {
-    id: "1",
-    name: "Project Launch Checklist",
-    categoryCount: 4,
-    itemCount: 12,
-    lastModified: "2 hours ago",
-  },
-  {
-    id: "2",
-    name: "Weekly Review",
-    categoryCount: 3,
-    itemCount: 8,
-    lastModified: "1 day ago",
-  },
-  {
-    id: "3",
-    name: "New Employee Onboarding",
-    categoryCount: 5,
-    itemCount: 15,
-    lastModified: "3 days ago",
-  },
-];
+import ChecklistGridServer from "@/components/ChecklistGridServer";
+import { getAllChecklists } from "./actions";
 
 export default async function Home() {
-  // In a real app, you would fetch this data from your database
-  const checklists = mockChecklists;
+  // Fetch checklists using the server action
+  const checklists = await getAllChecklists();
+
+  // Map data to the format expected by ChecklistGrid
+  const formattedChecklists = checklists.map((checklist) => ({
+    id: checklist.id,
+    name: checklist.name,
+    categoryCount: checklist.categories.length,
+    itemCount: checklist.categories.reduce(
+      (total, category) => total + category.items.length,
+      0
+    ),
+    lastModified: new Date(checklist.lastModified).toLocaleDateString(),
+  }));
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -51,7 +39,7 @@ export default async function Home() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <ChecklistGrid checklists={checklists} />
+        <ChecklistGridServer checklists={formattedChecklists} />
       </main>
     </div>
   );
