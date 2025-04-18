@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 import FileUploadField from "./FileUploadField";
 
-interface Category {
+export interface Category {
   id: string;
   name: string;
   items: ChecklistItem[];
@@ -17,9 +17,26 @@ interface ChecklistItem {
   uploadedFiles?: string[];
 }
 
-export default function ChecklistCreator() {
+interface ChecklistCreatorProps {
+  initialData?: {
+    name: string;
+    categories: Category[];
+  };
+}
+
+export default function ChecklistCreator({
+  initialData,
+}: ChecklistCreatorProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [checklistName, setChecklistName] = useState("");
+
+  // Load initial data if provided
+  useEffect(() => {
+    if (initialData) {
+      setChecklistName(initialData.name);
+      setCategories(initialData.categories);
+    }
+  }, [initialData]);
 
   const addCategory = () => {
     setCategories([
