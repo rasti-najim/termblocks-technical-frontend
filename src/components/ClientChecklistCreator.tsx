@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Category } from "./ChecklistCreator";
+import { Category } from "@/schemas/checklist";
 
 interface ClientChecklistCreatorProps {
   initialData?: {

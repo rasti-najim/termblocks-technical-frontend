@@ -12,16 +12,17 @@ interface FileUploadFieldProps {
   onFilesSelected: (files: File[]) => void;
   existingFiles?: string[];
   error?: string;
+  allowMultiple?: boolean;
 }
 
 export default function FileUploadField({
   onFilesSelected,
   existingFiles = [],
   error,
+  allowMultiple = true,
 }: FileUploadFieldProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
-  const [allowMultiple, setAllowMultiple] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -64,14 +65,6 @@ export default function FileUploadField({
     onFilesSelected(updatedFiles);
   };
 
-  const handleToggleMultiple = () => {
-    const newValue = !allowMultiple;
-    setAllowMultiple(newValue);
-    // Clear files when switching modes
-    setFiles([]);
-    onFilesSelected([]);
-  };
-
   return (
     <div className="space-y-2">
       <div
@@ -95,21 +88,15 @@ export default function FileUploadField({
             <span className="text-gray-400">or drag and drop</span>
           </div>
 
-          <button
-            type="button"
-            onClick={handleToggleMultiple}
+          <div
             className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors duration-200
-              ${
-                allowMultiple
-                  ? "text-blue-600 bg-blue-50 hover:bg-blue-100"
-                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-              }`}
+              ${allowMultiple ? "text-blue-600 bg-blue-50" : "text-gray-500"}`}
           >
             <Square2StackIcon className="w-5 h-5" />
             <span className="text-sm">
               {allowMultiple ? "Multiple files" : "Single file"}
             </span>
-          </button>
+          </div>
         </div>
 
         <input

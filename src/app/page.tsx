@@ -3,17 +3,39 @@ import { PlusIcon } from "@heroicons/react/24/outline";
 import ChecklistGridServer from "@/components/ChecklistGridServer";
 import { getAllChecklists } from "./actions";
 
+interface ChecklistItem {
+  name: string;
+  is_file_upload_field: boolean;
+  allow_multiple_files?: boolean;
+}
+
+interface Category {
+  name: string;
+  items: ChecklistItem[];
+}
+
+interface Checklist {
+  id: string;
+  name: string;
+  categories: Category[];
+  lastModified: string;
+}
+
 export default async function Home() {
   // Fetch checklists using the server action
-  const checklists = await getAllChecklists();
+  const response = await getAllChecklists();
+
+  // Extract the data array from the response
+  const checklistsData =
+    response.success && response.data ? (response.data as Checklist[]) : [];
 
   // Map data to the format expected by ChecklistGrid
-  const formattedChecklists = checklists.map((checklist) => ({
+  const formattedChecklists = checklistsData.map((checklist: Checklist) => ({
     id: checklist.id,
     name: checklist.name,
     categoryCount: checklist.categories.length,
     itemCount: checklist.categories.reduce(
-      (total, category) => total + category.items.length,
+      (total: number, category: Category) => total + category.items.length,
       0
     ),
     lastModified: new Date(checklist.lastModified).toLocaleDateString(),

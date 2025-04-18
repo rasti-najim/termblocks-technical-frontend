@@ -1,136 +1,106 @@
 "use server";
 
-import { type Category } from "@/schemas/checklist";
+import { revalidatePath } from "next/cache";
 
-// Type definitions
-export interface Checklist {
-  id: string;
+interface ChecklistItem {
+  name: string;
+  is_file_upload_field: boolean;
+  allow_multiple_files?: boolean;
+}
+
+interface Category {
+  name: string;
+  items: ChecklistItem[];
+}
+
+interface Checklist {
   name: string;
   categories: Category[];
-  lastModified: string;
 }
 
-// In a real app, this would be saved to a database
-// For now, we'll use this in-memory storage that will be reset on server restart
-const mockDB: Record<string, Omit<Checklist, "id">> = {
-  "1": {
-    name: "Project Launch Checklist",
-    categories: [
-      {
-        id: "cat1",
-        name: "Documentation",
-        items: [
-          {
-            id: "item1",
-            name: "Project Requirements",
-            uploadedFiles: ["requirements.pdf"],
-          },
-          {
-            id: "item2",
-            name: "Technical Specifications",
-            uploadedFiles: ["specs.doc"],
-          },
-        ],
-      },
-      {
-        id: "cat2",
-        name: "Design Assets",
-        items: [
-          {
-            id: "item3",
-            name: "Logo Files",
-            uploadedFiles: ["logo.png", "logo.svg"],
-          },
-        ],
-      },
-    ],
-    lastModified: new Date().toISOString(),
-  },
-  "2": {
-    name: "Weekly Review",
-    categories: [
-      {
-        id: "cat3",
-        name: "Reports",
-        items: [
-          {
-            id: "item4",
-            name: "Weekly Progress",
-            uploadedFiles: ["progress.pdf"],
-          },
-        ],
-      },
-    ],
-    lastModified: new Date().toISOString(),
-  },
-};
-
-// Server action to get a checklist by ID
-export async function getChecklist(id: string) {
-  // Simulate database delay
-  await new Promise((resolve) => setTimeout(resolve, 100));
-
-  if (id === "new") {
-    return null;
-  }
-
-  const data = mockDB[id];
-  if (!data) {
-    return null;
-  }
-
-  return { ...data, id };
-}
-
-// Server action to get all checklists
-export async function getAllChecklists(): Promise<Checklist[]> {
-  // Simulate database delay
-  await new Promise((resolve) => setTimeout(resolve, 100));
-
-  return Object.entries(mockDB).map(([id, data]) => ({
-    ...data,
-    id,
-  }));
-}
-
-// Server action to save a checklist
-export async function saveChecklist(
-  id: string | null,
-  data: { name: string; categories: Category[] }
-): Promise<{ success: boolean; id: string }> {
-  // Simulate database delay
-  await new Promise((resolve) => setTimeout(resolve, 500));
-
+export async function saveChecklist(id: string | null, data: Checklist) {
   try {
-    const newId = id || Math.random().toString(36).substring(2, 9);
+    console.log("Submitting checklist data:", data);
 
-    mockDB[newId] = {
-      ...data,
-      lastModified: new Date().toISOString(),
+    // Prepare the data in the format the API expects
+    const apiData = {
+      name: data.name,
+      categories: data.categories.map((category) => ({
+        name: category.name,
+        items: category.items.map((item) => ({
+          name: item.name,
+          is_file_upload_field: Boolean(item.is_file_upload_field),
+          allow_multiple_files: Boolean(item.allow_multiple_files),
+        })),
+      })),
     };
 
-    return { success: true, id: newId };
+    console.log("Formatted API data:", apiData);
+
+    const response = await fetch("http://localhost:8000/checklists", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(apiData),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("API error response:", errorText);
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log("API success response:", result);
+    revalidatePath("/");
+    return { success: true, data: result };
   } catch (error) {
-    console.error("Error saving checklist:", error);
-    return { success: false, id: id || "" };
+    console.error("Failed to save checklist:", error);
+    return { success: false, error: "Failed to save checklist" };
   }
 }
 
-// Server action to delete a checklist
-export async function deleteChecklist(
-  id: string
-): Promise<{ success: boolean }> {
-  // Simulate database delay
-  await new Promise((resolve) => setTimeout(resolve, 300));
-
+export async function getChecklist(id: string) {
   try {
-    if (mockDB[id]) {
-      delete mockDB[id];
-      return { success: true };
+    const response = await fetch(`http://localhost:8000/checklists/${id}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
-    return { success: false };
+    const data = await response.json();
+    return { success: true, data };
   } catch (error) {
-    console.error("Error deleting checklist:", error);
-    return { success: false };
+    console.error("Failed to get checklist:", error);
+    return { success: false, error: "Failed to get checklist" };
+  }
+}
+
+export async function getAllChecklists() {
+  try {
+    const response = await fetch("http://localhost:8000/checklists");
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    return { success: true, data };
+  } catch (error) {
+    console.error("Failed to get checklists:", error);
+    return { success: false, error: "Failed to get checklists" };
+  }
+}
+
+export async function deleteChecklist(id: string) {
+  try {
+    const response = await fetch(`http://localhost:8000/checklists/${id}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    revalidatePath("/");
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to delete checklist:", error);
+    return { success: false, error: "Failed to delete checklist" };
   }
 }

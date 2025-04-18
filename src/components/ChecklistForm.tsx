@@ -13,12 +13,13 @@ import {
   useFieldArray,
   Controller,
   FormProvider,
+  SubmitHandler,
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import FileUploadField from "./FileUploadField";
 import { saveChecklist } from "@/app/actions";
 import {
-  checklistFormSchema,
+  checklistSchema,
   type ChecklistFormData,
   type Category,
 } from "@/schemas/checklist";
@@ -40,7 +41,7 @@ export default function ChecklistForm({ initialData }: ChecklistFormProps) {
 
   // Initialize form with React Hook Form and Zod validation
   const methods = useForm<ChecklistFormData>({
-    resolver: zodResolver(checklistFormSchema),
+    resolver: zodResolver(checklistSchema),
     defaultValues: {
       id: initialData?.id || undefined,
       name: initialData?.name || "",
@@ -51,7 +52,6 @@ export default function ChecklistForm({ initialData }: ChecklistFormProps) {
 
   const {
     control,
-    handleSubmit,
     formState: { errors },
     setValue,
     watch,
@@ -81,7 +81,8 @@ export default function ChecklistForm({ initialData }: ChecklistFormProps) {
   }, [initialData, setValue]);
 
   // Form submission handler
-  const onSubmit = async (data: ChecklistFormData) => {
+  const onSubmit: SubmitHandler<ChecklistFormData> = async (data) => {
+    console.log("Form submitted with data:", data);
     setIsSaving(true);
 
     try {
@@ -90,6 +91,8 @@ export default function ChecklistForm({ initialData }: ChecklistFormProps) {
         name: data.name,
         categories: data.categories,
       });
+
+      console.log("Save checklist result:", result);
 
       if (result.success) {
         // After saving, redirect to home
@@ -109,7 +112,6 @@ export default function ChecklistForm({ initialData }: ChecklistFormProps) {
   // Helper for adding a new category
   const addCategory = () => {
     appendCategory({
-      id: Math.random().toString(36).substr(2, 9),
       name: "New Category",
       items: [],
     });
@@ -122,8 +124,11 @@ export default function ChecklistForm({ initialData }: ChecklistFormProps) {
       items: [
         ...category.items,
         {
-          id: Math.random().toString(36).substr(2, 9),
           name: "New Item",
+          is_file_upload_field: true,
+          allow_multiple_files: false,
+          files: [],
+          uploadedFiles: [],
         },
       ],
     };
@@ -168,7 +173,14 @@ export default function ChecklistForm({ initialData }: ChecklistFormProps) {
 
   return (
     <FormProvider {...methods}>
-      <form onSubmit={handleSubmit(onSubmit)} className="max-w-3xl mx-auto p-6">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          console.log("Form submitted, current values:", formValues);
+          onSubmit(formValues as ChecklistFormData);
+        }}
+        className="max-w-3xl mx-auto p-6"
+      >
         <div className="mb-12">
           <div className="relative">
             <Controller
@@ -206,7 +218,7 @@ export default function ChecklistForm({ initialData }: ChecklistFormProps) {
             const category = formValues.categories[categoryIndex];
             return (
               <div
-                key={categoryField.id}
+                key={`category-${categoryIndex}`}
                 className="bg-white rounded-lg border border-gray-200 overflow-hidden"
               >
                 <div className="flex items-center justify-between p-4 border-b border-gray-100">
@@ -245,7 +257,10 @@ export default function ChecklistForm({ initialData }: ChecklistFormProps) {
 
                 <div className="divide-y divide-gray-100">
                   {category.items.map((item, itemIndex) => (
-                    <div key={item.id} className="p-4 space-y-4">
+                    <div
+                      key={`item-${categoryIndex}-${itemIndex}`}
+                      className="p-4 space-y-4"
+                    >
                       <div className="flex items-center justify-between">
                         <Controller
                           name={`categories.${categoryIndex}.items.${itemIndex}.name`}
@@ -290,16 +305,58 @@ export default function ChecklistForm({ initialData }: ChecklistFormProps) {
                         </button>
                       </div>
 
-                      <FileUploadField
-                        onFilesSelected={(files) =>
-                          updateItemFiles(categoryIndex, itemIndex, files)
-                        }
-                        existingFiles={item.uploadedFiles}
-                        error={
-                          errors.categories?.[categoryIndex]?.items?.[itemIndex]
-                            ?.files?.message
-                        }
-                      />
+                      <div className="flex items-center space-x-4 mb-3">
+                        <Controller
+                          name={`categories.${categoryIndex}.items.${itemIndex}.is_file_upload_field`}
+                          control={control}
+                          render={({ field }) => (
+                            <label className="flex items-center text-sm text-gray-600">
+                              <input
+                                type="checkbox"
+                                checked={field.value}
+                                onChange={field.onChange}
+                                className="rounded border-gray-300 text-blue-500 shadow-sm focus:border-blue-500 focus:ring-blue-500 mr-2"
+                              />
+                              File Upload Field
+                            </label>
+                          )}
+                        />
+
+                        {formValues.categories[categoryIndex]?.items[itemIndex]
+                          ?.is_file_upload_field && (
+                          <Controller
+                            name={`categories.${categoryIndex}.items.${itemIndex}.allow_multiple_files`}
+                            control={control}
+                            render={({ field }) => (
+                              <label className="flex items-center text-sm text-gray-600">
+                                <input
+                                  type="checkbox"
+                                  checked={field.value}
+                                  onChange={field.onChange}
+                                  className="rounded border-gray-300 text-blue-500 shadow-sm focus:border-blue-500 focus:ring-blue-500 mr-2"
+                                />
+                                Allow Multiple Files
+                              </label>
+                            )}
+                          />
+                        )}
+                      </div>
+
+                      {formValues.categories[categoryIndex]?.items[itemIndex]
+                        ?.is_file_upload_field && (
+                        <FileUploadField
+                          onFilesSelected={(files) =>
+                            updateItemFiles(categoryIndex, itemIndex, files)
+                          }
+                          existingFiles={item.uploadedFiles}
+                          error={
+                            errors.categories?.[categoryIndex]?.items?.[
+                              itemIndex
+                            ]?.files?.message
+                          }
+                          allowMultiple={item.allow_multiple_files}
+                        />
+                      )}
                     </div>
                   ))}
 
@@ -362,6 +419,32 @@ export default function ChecklistForm({ initialData }: ChecklistFormProps) {
               : isNewChecklist
               ? "Create Checklist"
               : "Save Changes"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              // Test direct API call
+              const testData = {
+                name: "Test Checklist",
+                categories: [
+                  {
+                    name: "Test Category",
+                    items: [
+                      {
+                        name: "Test Item",
+                        is_file_upload_field: true,
+                        allow_multiple_files: false,
+                      },
+                    ],
+                  },
+                ],
+              };
+              console.log("Making direct API call with test data:", testData);
+              saveChecklist(null, testData);
+            }}
+            className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors duration-200 shadow-lg"
+          >
+            Test API Call
           </button>
           <button
             type="button"

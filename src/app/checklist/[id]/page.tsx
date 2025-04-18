@@ -10,11 +10,13 @@ export default async function ChecklistPage({
 }) {
   // Redirect to new route handled by middleware or server action
 
-  const checklistData = await getChecklist(params.id);
+  const response = await getChecklist(params.id);
 
-  if (!checklistData) {
+  if (!response.success || !response.data) {
     notFound();
   }
+
+  const checklistData = response.data;
 
   return (
     <div className="min-h-screen bg-gray-50">
