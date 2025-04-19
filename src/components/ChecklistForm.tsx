@@ -17,7 +17,7 @@ import {
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import FileUploadField from "./FileUploadField";
-import { saveChecklist } from "@/app/actions";
+import { saveChecklist, deleteCategory, deleteItem } from "@/app/actions";
 import {
   checklistSchema,
   type ChecklistFormData,
@@ -61,7 +61,7 @@ export default function ChecklistForm({ initialData }: ChecklistFormProps) {
   const {
     fields: categoryFields,
     append: appendCategory,
-    remove: removeCategory,
+    remove: removeCategoryField,
     update: updateCategory,
   } = useFieldArray({
     control,
@@ -137,17 +137,60 @@ export default function ChecklistForm({ initialData }: ChecklistFormProps) {
   };
 
   // Helper for removing an item from a category
-  const removeItem = (
+  const removeItem = async (
     categoryIndex: number,
     category: Category,
     itemIndex: number
   ) => {
+    const item = category.items[itemIndex];
+
+    // If the item has an ID, it exists in the backend and needs to be deleted there
+    if (item.id) {
+      try {
+        const result = await deleteItem(item.id);
+        if (!result.success) {
+          alert("Failed to delete item. Please try again.");
+          return;
+        }
+      } catch (error) {
+        console.error("Error deleting item:", error);
+        alert("Failed to delete item. Please try again.");
+        return;
+      }
+    }
+
+    // Update the local state
     const updatedCategory = {
       ...category,
       items: category.items.filter((_, idx) => idx !== itemIndex),
     };
 
     updateCategory(categoryIndex, updatedCategory);
+  };
+
+  // Helper for removing a category
+  const removeCategory = async (categoryIndex: number) => {
+    const category = formValues.categories[categoryIndex];
+
+    // If the category has an ID, it exists in the backend and needs to be deleted there
+    if (category.id) {
+      try {
+        console.log(`Attempting to delete category with ID: ${category.id}`);
+        const result = await deleteCategory(category.id);
+        if (!result.success) {
+          alert("Failed to delete category. Please try again.");
+          return;
+        }
+      } catch (error) {
+        console.error("Error deleting category:", error);
+        alert("Failed to delete category. Please try again.");
+        return;
+      }
+    }
+
+    // Remove from local state using the field array remove function
+    console.log(`Removing category at index: ${categoryIndex}`);
+    removeCategoryField(categoryIndex);
   };
 
   // Helper for updating an item's files

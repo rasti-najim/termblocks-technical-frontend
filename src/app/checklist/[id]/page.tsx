@@ -8,7 +8,9 @@ export default async function ChecklistPage({
 }: {
   params: { id: string };
 }) {
-  // Redirect to new route handled by middleware or server action
+  // Redirect to new route handled by middleware or server action'
+
+  console.log(params.id);
 
   const response = await getChecklist(params.id);
 
