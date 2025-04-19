@@ -19,6 +19,8 @@ interface Checklist {
   name: string;
   categories: Category[];
   lastModified: string;
+  item_count: number;
+  category_count: number;
 }
 
 export default async function Home() {
@@ -33,11 +35,8 @@ export default async function Home() {
   const formattedChecklists = checklistsData.map((checklist: Checklist) => ({
     id: checklist.id,
     name: checklist.name,
-    categoryCount: checklist.categories.length,
-    itemCount: checklist.categories.reduce(
-      (total: number, category: Category) => total + category.items.length,
-      0
-    ),
+    categoryCount: checklist.category_count,
+    itemCount: checklist.item_count,
     lastModified: new Date(checklist.lastModified).toLocaleDateString(),
   }));
 
