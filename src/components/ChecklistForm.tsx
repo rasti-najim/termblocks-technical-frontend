@@ -26,12 +26,14 @@ import {
   deleteCategory,
   deleteItem,
   duplicateChecklist,
+  makeChecklistPublic,
 } from "@/app/actions";
 import {
   checklistSchema,
   type ChecklistFormData,
   type Category,
 } from "@/schemas/checklist";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface ChecklistFormProps {
   initialData?: {
@@ -48,6 +50,12 @@ export default function ChecklistForm({ initialData }: ChecklistFormProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
+  const [clipboardMessage, setClipboardMessage] = useState("");
+
+  // Get auth token from context
+  const { token } = useAuth();
 
   // Initialize form with React Hook Form and Zod validation
   const methods = useForm<ChecklistFormData>({
@@ -92,19 +100,19 @@ export default function ChecklistForm({ initialData }: ChecklistFormProps) {
 
   // Form submission handler
   const onSubmit: SubmitHandler<ChecklistFormData> = async (data) => {
-    console.log("Form submitted with data:", data);
-    setIsSaving(true);
-
     try {
-      // Use the server action to save checklist
-      const result = await saveChecklist(data.id || null, {
-        name: data.name,
-        categories: data.categories,
-      });
+      setIsSaving(true);
+      console.log("Form data being submitted:", data);
 
-      console.log("Save checklist result:", result);
+      const response = await saveChecklist(
+        data.id || null,
+        data as Checklist,
+        token // Pass the token to the server action
+      );
 
-      if (result.success) {
+      console.log("Save checklist result:", response);
+
+      if (response.success) {
         // After saving, redirect to home
         router.push("/");
         router.refresh();
@@ -219,9 +227,54 @@ export default function ChecklistForm({ initialData }: ChecklistFormProps) {
     }
   };
 
-  // Mock share functionality
-  const handleShare = () => {
+  // Update the handleShare function to automatically make the checklist public
+  const handleShare = async () => {
     setIsShareDialogOpen(true);
+
+    // Only make public if we have an ID and no shareUrl yet
+    if (!shareUrl && initialData?.id) {
+      setIsSharing(true);
+      try {
+        console.log("Making checklist public with ID:", initialData.id);
+        const result = await makeChecklistPublic(initialData.id);
+        console.log("Make public result:", result);
+
+        if (result.success && result.data?.shareToken) {
+          // Construct the URL on the client side
+          const url = `${window.location.origin}/shared/${result.data.shareToken}`;
+          console.log("Generated share URL:", url);
+          setShareUrl(url);
+        } else {
+          console.error("Failed to make checklist public:", result.error);
+          alert(
+            `Failed to make checklist public: ${
+              result.error || "Unknown error"
+            }`
+          );
+        }
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error occurred";
+        console.error("Error making checklist public:", errorMessage);
+        alert(`Error making checklist public: ${errorMessage}`);
+      } finally {
+        setIsSharing(false);
+      }
+    }
+  };
+
+  // Function to copy the URL to clipboard
+  const copyToClipboard = async () => {
+    if (!shareUrl) return;
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setClipboardMessage("Copied to clipboard!");
+      setTimeout(() => setClipboardMessage(""), 3000);
+    } catch (error) {
+      console.error("Failed to copy:", error);
+      setClipboardMessage("Failed to copy");
+    }
   };
 
   // Add a function to handle checklist duplication
@@ -513,7 +566,7 @@ export default function ChecklistForm({ initialData }: ChecklistFormProps) {
                 ],
               };
               console.log("Making direct API call with test data:", testData);
-              saveChecklist(null, testData);
+              saveChecklist(null, testData, token);
             }}
             className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors duration-200 shadow-lg"
           >
@@ -555,47 +608,62 @@ export default function ChecklistForm({ initialData }: ChecklistFormProps) {
             </div>
 
             <p className="text-gray-600 mb-4">
-              Share this checklist with your team members by entering their
-              email addresses below.
+              Share this checklist with anyone by using the public link below.
             </p>
 
-            <div className="mb-4">
-              <label
-                htmlFor="emails"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Email Addresses
-              </label>
-              <input
-                type="text"
-                id="emails"
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                placeholder="email@example.com, another@example.com"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Separate multiple email addresses with commas.
-              </p>
-            </div>
+            {isSharing ? (
+              <div className="mb-6 text-center py-4">
+                <div className="animate-pulse flex justify-center">
+                  <div className="h-5 w-5 bg-blue-500 rounded-full mr-2"></div>
+                  <div className="h-5 w-5 bg-blue-500 rounded-full mr-2"></div>
+                  <div className="h-5 w-5 bg-blue-500 rounded-full"></div>
+                </div>
+                <p className="mt-2">Making checklist public...</p>
+              </div>
+            ) : !shareUrl ? (
+              <div className="mb-6 text-center">
+                <p className="text-yellow-600 mb-2">
+                  Something went wrong while generating the link.
+                </p>
+                <button
+                  onClick={handleShare}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                >
+                  Try Again
+                </button>
+              </div>
+            ) : (
+              <div className="mb-6">
+                <div className="flex mb-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={shareUrl}
+                    className="flex-1 p-2 border border-gray-300 rounded-l-md focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <button
+                    onClick={copyToClipboard}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-r-md hover:bg-blue-600"
+                  >
+                    Copy
+                  </button>
+                </div>
+                {clipboardMessage && (
+                  <p className="text-sm text-green-600">{clipboardMessage}</p>
+                )}
+                <p className="text-xs text-gray-500 mt-1">
+                  Anyone with this link can view (but not edit) this checklist.
+                </p>
+              </div>
+            )}
 
-            <div className="flex justify-end space-x-3">
+            <div className="flex justify-end">
               <button
                 type="button"
                 onClick={() => setIsShareDialogOpen(false)}
                 className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
               >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-                onClick={() => {
-                  alert(
-                    "Sharing functionality would be implemented here in a real app."
-                  );
-                  setIsShareDialogOpen(false);
-                }}
-              >
-                Share
+                Close
               </button>
             </div>
           </div>

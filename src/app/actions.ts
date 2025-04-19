@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 
 interface ChecklistItem {
   id?: string;
@@ -43,7 +44,46 @@ interface ApiItem {
   allow_multiple_files: boolean;
 }
 
-export async function saveChecklist(id: string | null, data: Checklist) {
+// Function to get auth headers from cookies
+function getAuthHeaders() {
+  const cookieStore = cookies();
+  const token = cookieStore.get("auth_token")?.value;
+
+  const headers = {
+    "Content-Type": "application/json",
+  };
+
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  return headers;
+}
+
+// In server actions, we'll make API requests with the token as a parameter
+async function fetchWithAuth(
+  url: string,
+  options: RequestInit = {},
+  token?: string
+) {
+  const headers = new Headers(options.headers);
+  headers.set("Content-Type", "application/json");
+
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  return fetch(url, {
+    ...options,
+    headers,
+  });
+}
+
+export async function saveChecklist(
+  id: string | null,
+  data: Checklist,
+  token?: string
+) {
   try {
     console.log("Submitting checklist data:", data);
     console.log("Checklist ID:", id);
@@ -53,26 +93,26 @@ export async function saveChecklist(id: string | null, data: Checklist) {
 
     if (isUpdate) {
       // Update existing checklist
-      await updateChecklist(id, data);
+      await updateChecklist(id, data, token);
 
       // After updating the checklist itself, handle categories and items
       for (const category of data.categories) {
         if (category.id) {
           // Update existing category
-          await updateCategory(category.id, category);
+          await updateCategory(category.id, category, token);
 
           for (const item of category.items) {
             if (item.id) {
               // Update existing item
-              await updateItem(item.id, item);
+              await updateItem(item.id, item, token);
             } else {
               // Create new item in this category
-              await createItem(category.id, item);
+              await createItem(category.id, item, token);
             }
           }
         } else {
           // Create new category with its items
-          await createCategory(id, category);
+          await createCategory(id, category, token);
         }
       }
 
@@ -94,13 +134,14 @@ export async function saveChecklist(id: string | null, data: Checklist) {
 
       console.log("Creating new checklist:", apiData);
 
-      const response = await fetch("http://localhost:8000/checklists", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetchWithAuth(
+        "http://localhost:8000/checklists",
+        {
+          method: "POST",
+          body: JSON.stringify(apiData),
         },
-        body: JSON.stringify(apiData),
-      });
+        token
+      );
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -120,16 +161,21 @@ export async function saveChecklist(id: string | null, data: Checklist) {
 }
 
 // Update an existing checklist
-async function updateChecklist(id: string, data: { name: string }) {
+async function updateChecklist(
+  id: string,
+  data: { name: string },
+  token?: string
+) {
   console.log(`Updating checklist ${id}:`, data.name);
 
-  const response = await fetch(`http://localhost:8000/checklists/${id}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
+  const response = await fetchWithAuth(
+    `http://localhost:8000/checklists/${id}`,
+    {
+      method: "PUT",
+      body: JSON.stringify({ name: data.name }),
     },
-    body: JSON.stringify({ name: data.name }),
-  });
+    token
+  );
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -141,18 +187,20 @@ async function updateChecklist(id: string, data: { name: string }) {
 }
 
 // Update an existing category
-async function updateCategory(categoryId: string, data: { name: string }) {
+async function updateCategory(
+  categoryId: string,
+  data: { name: string },
+  token?: string
+) {
   console.log(`Updating category ${categoryId}:`, data.name);
 
-  const response = await fetch(
+  const response = await fetchWithAuth(
     `http://localhost:8000/categories/${categoryId}`,
     {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
       body: JSON.stringify({ name: data.name }),
-    }
+    },
+    token
   );
 
   if (!response.ok) {
@@ -165,7 +213,11 @@ async function updateCategory(categoryId: string, data: { name: string }) {
 }
 
 // Create a new category in an existing checklist
-async function createCategory(checklistId: string, data: Category) {
+async function createCategory(
+  checklistId: string,
+  data: Category,
+  token?: string
+) {
   console.log(`Creating new category in checklist ${checklistId}:`, data.name);
 
   const categoryData = {
@@ -178,13 +230,14 @@ async function createCategory(checklistId: string, data: Category) {
     })),
   };
 
-  const response = await fetch(`http://localhost:8000/categories`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
+  const response = await fetchWithAuth(
+    `http://localhost:8000/categories`,
+    {
+      method: "POST",
+      body: JSON.stringify(categoryData),
     },
-    body: JSON.stringify(categoryData),
-  });
+    token
+  );
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -196,7 +249,7 @@ async function createCategory(checklistId: string, data: Category) {
 }
 
 // Update an existing item
-async function updateItem(itemId: string, data: ChecklistItem) {
+async function updateItem(itemId: string, data: ChecklistItem, token?: string) {
   console.log(`Updating item ${itemId}:`, data.name);
 
   const itemData = {
@@ -205,13 +258,14 @@ async function updateItem(itemId: string, data: ChecklistItem) {
     allow_multiple_files: data.allow_multiple_files || false,
   };
 
-  const response = await fetch(`http://localhost:8000/items/${itemId}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
+  const response = await fetchWithAuth(
+    `http://localhost:8000/items/${itemId}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(itemData),
     },
-    body: JSON.stringify(itemData),
-  });
+    token
+  );
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -223,7 +277,11 @@ async function updateItem(itemId: string, data: ChecklistItem) {
 }
 
 // Create a new item in an existing category
-async function createItem(categoryId: string, data: ChecklistItem) {
+async function createItem(
+  categoryId: string,
+  data: ChecklistItem,
+  token?: string
+) {
   console.log(`Creating new item in category ${categoryId}:`, data.name);
 
   const itemData = {
@@ -233,13 +291,14 @@ async function createItem(categoryId: string, data: ChecklistItem) {
     allow_multiple_files: data.allow_multiple_files || false,
   };
 
-  const response = await fetch(`http://localhost:8000/items`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
+  const response = await fetchWithAuth(
+    `http://localhost:8000/items`,
+    {
+      method: "POST",
+      body: JSON.stringify(itemData),
     },
-    body: JSON.stringify(itemData),
-  });
+    token
+  );
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -253,7 +312,9 @@ async function createItem(categoryId: string, data: ChecklistItem) {
 export async function getChecklist(id: string) {
   try {
     console.log(`Getting checklist with ID: ${id}`);
-    const response = await fetch(`http://localhost:8000/checklists/${id}`);
+    const response = await fetch(`http://localhost:8000/checklists/${id}`, {
+      headers: getAuthHeaders(),
+    });
 
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
@@ -290,10 +351,14 @@ export async function getChecklist(id: string) {
 
 export async function getAllChecklists() {
   try {
-    const response = await fetch("http://localhost:8000/checklists");
+    const response = await fetch("http://localhost:8000/checklists", {
+      headers: getAuthHeaders(),
+    });
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
+
     const data = await response.json();
     console.log("All checklists response:", data);
 
@@ -319,12 +384,16 @@ export async function getAllChecklists() {
 
 export async function deleteChecklist(id: string) {
   try {
+    console.log(`Deleting checklist with ID: ${id}`);
     const response = await fetch(`http://localhost:8000/checklists/${id}`, {
       method: "DELETE",
+      headers: getAuthHeaders(),
     });
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
+
     revalidatePath("/");
     return { success: true };
   } catch (error) {
@@ -340,6 +409,7 @@ export async function deleteCategory(categoryId: string) {
       `http://localhost:8000/categories/${categoryId}`,
       {
         method: "DELETE",
+        headers: getAuthHeaders(),
       }
     );
 
@@ -362,6 +432,7 @@ export async function deleteItem(itemId: string) {
     console.log(`Deleting item with ID: ${itemId}`);
     const response = await fetch(`http://localhost:8000/items/${itemId}`, {
       method: "DELETE",
+      headers: getAuthHeaders(),
     });
 
     console.log("Response:", response);
@@ -387,9 +458,7 @@ export async function duplicateChecklist(id: string) {
       `http://localhost:8000/checklists/${id}/clone`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: getAuthHeaders(),
       }
     );
 
@@ -422,5 +491,100 @@ export async function duplicateChecklist(id: string) {
   } catch (error) {
     console.error("Failed to duplicate checklist:", error);
     return { success: false, error: "Failed to duplicate checklist" };
+  }
+}
+
+export async function makeChecklistPublic(id: string) {
+  try {
+    console.log(`Making checklist ${id} public`);
+
+    // Validate the ID
+    if (!id) {
+      console.error("Invalid checklist ID: empty or undefined");
+      return { success: false, error: "Invalid checklist ID" };
+    }
+
+    const response = await fetch(`http://localhost:8000/checklists/${id}`, {
+      method: "PUT",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ is_public: true }),
+    });
+
+    console.log("Make public response status:", response.status);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`API error response: ${response.status} - ${errorText}`);
+      return { success: false, error: `API error: ${response.status}` };
+    }
+
+    const result = await response.json();
+    console.log("Make public result full response:", JSON.stringify(result));
+
+    // Check if share_token exists in the response
+    if (!result.share_token) {
+      console.error("API response missing share_token:", result);
+      return { success: false, error: "API response missing share token" };
+    }
+
+    // Return the share token for creating the shareable link
+    return {
+      success: true,
+      data: {
+        // Don't create the URL on the server - let the client handle it
+        shareToken: result.share_token,
+      },
+    };
+  } catch (error) {
+    console.error("Failed to make checklist public:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+export async function getSharedChecklist(shareToken: string) {
+  try {
+    console.log(`Getting shared checklist with token: ${shareToken}`);
+    const response = await fetch(`http://localhost:8000/shared/${shareToken}`, {
+      headers: getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log("Shared checklist data from API:", data);
+
+    // Format the data similar to getChecklist
+    const formattedData = {
+      id: data.id.toString(),
+      name: data.name,
+      categories: (data.categories || []).map((category: ApiCategory) => ({
+        id: category.id?.toString(),
+        name: category.name,
+        items: (category.items || []).map((item: ApiItem) => ({
+          id: item.id?.toString(),
+          name: item.name,
+          is_file_upload_field: item.is_file_upload_field || false,
+          allow_multiple_files: item.allow_multiple_files || false,
+          files: [],
+          uploadedFiles: [],
+        })),
+      })),
+      shareToken: data.share_token,
+      isPublic: data.is_public,
+    };
+
+    return { success: true, data: formattedData };
+  } catch (error) {
+    console.error("Failed to get shared checklist:", error);
+    return {
+      success: false,
+      error:
+        "Failed to get shared checklist. It may not exist or not be public.",
+    };
   }
 }
