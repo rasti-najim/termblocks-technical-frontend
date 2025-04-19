@@ -379,3 +379,48 @@ export async function deleteItem(itemId: string) {
     return { success: false, error: "Failed to delete item" };
   }
 }
+
+export async function duplicateChecklist(id: string) {
+  try {
+    console.log(`Duplicating checklist with ID: ${id}`);
+    const response = await fetch(
+      `http://localhost:8000/checklists/${id}/clone`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    console.log("Checklist clone response:", response);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("API error response:", errorText);
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log("Clone result:", result);
+
+    // Make sure we return the new checklist ID for redirection
+    const newChecklistId = result.checklist_id?.toString();
+
+    if (!newChecklistId) {
+      throw new Error("No ID returned for cloned checklist");
+    }
+
+    revalidatePath("/");
+    return {
+      success: true,
+      data: {
+        id: newChecklistId,
+        name: result.name,
+      },
+    };
+  } catch (error) {
+    console.error("Failed to duplicate checklist:", error);
+    return { success: false, error: "Failed to duplicate checklist" };
+  }
+}

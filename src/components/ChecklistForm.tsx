@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
+import {
+  PlusIcon,
+  TrashIcon,
+  DocumentDuplicateIcon,
+} from "@heroicons/react/24/outline";
 import {
   ExclamationCircleIcon,
   ShareIcon,
@@ -17,7 +21,12 @@ import {
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import FileUploadField from "./FileUploadField";
-import { saveChecklist, deleteCategory, deleteItem } from "@/app/actions";
+import {
+  saveChecklist,
+  deleteCategory,
+  deleteItem,
+  duplicateChecklist,
+} from "@/app/actions";
 import {
   checklistSchema,
   type ChecklistFormData,
@@ -38,6 +47,7 @@ export default function ChecklistForm({ initialData }: ChecklistFormProps) {
   const isNewChecklist = pathname === "/checklist/new";
   const [isSaving, setIsSaving] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [isDuplicating, setIsDuplicating] = useState(false);
 
   // Initialize form with React Hook Form and Zod validation
   const methods = useForm<ChecklistFormData>({
@@ -212,6 +222,26 @@ export default function ChecklistForm({ initialData }: ChecklistFormProps) {
   // Mock share functionality
   const handleShare = () => {
     setIsShareDialogOpen(true);
+  };
+
+  // Add a function to handle checklist duplication
+  const handleDuplicate = async () => {
+    if (!initialData?.id) return;
+
+    setIsDuplicating(true);
+    try {
+      const result = await duplicateChecklist(initialData.id);
+      if (result.success && result.data?.id) {
+        router.push(`/checklist/${result.data.id}`);
+      } else {
+        alert("Failed to duplicate checklist. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error duplicating checklist:", error);
+      alert("Failed to duplicate checklist. Please try again.");
+    } finally {
+      setIsDuplicating(false);
+    }
   };
 
   return (
@@ -496,6 +526,15 @@ export default function ChecklistForm({ initialData }: ChecklistFormProps) {
           >
             <ShareIcon className="h-5 w-5 mr-2" />
             Share
+          </button>
+          <button
+            type="button"
+            onClick={handleDuplicate}
+            disabled={isDuplicating}
+            className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <DocumentDuplicateIcon className="h-4 w-4 mr-2" />
+            {isDuplicating ? "Duplicating..." : "Duplicate"}
           </button>
         </div>
       </form>
